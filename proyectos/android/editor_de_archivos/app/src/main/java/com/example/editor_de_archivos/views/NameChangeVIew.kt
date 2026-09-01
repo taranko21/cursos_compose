@@ -1,5 +1,8 @@
 package com.example.editor_de_archivos.views
 
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,8 +44,57 @@ fun NameChangeView(
     navController: NavController
 ) {
 
+
+    var detectedType by remember { mutableStateOf("") }
+
     var fileName by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf("Imagenes") }
+    val context = LocalContext.current
+    val contentResolver = context.contentResolver
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+
+        if (uri != null) {
+
+            val cursor = contentResolver.query(
+                uri,
+                null,
+                null,
+                null,
+                null
+            )
+
+            cursor?.use {
+
+                if (it.moveToFirst()) {
+
+                    val nameIndex = it.getColumnIndex(
+                        OpenableColumns.DISPLAY_NAME
+                    )
+
+                    if (nameIndex != -1) {
+                        fileName = it.getString(nameIndex)
+                    }
+                }
+            }
+
+            val mimeType = contentResolver.getType(uri)
+
+            detectedType = when {
+
+                mimeType?.startsWith("image/") == true ->
+                    "Imagen"
+
+                mimeType?.startsWith("video/") == true ->
+                    "Video"
+
+                else ->
+                    "Otro"
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -184,16 +237,25 @@ fun NameChangeView(
                 }
             }
 
+            if (detectedType.isNotEmpty()) {
+
+                Text(
+                    text = "Tipo detectado: $detectedType",
+                    color = Color.White,
+                    fontSize = 16.sp
+                )
+            }
+
             Spacer(modifier = Modifier.height(15.dp))
 
-            // Botón buscar
             Button(
                 onClick = {
-                    // Aquí posteriormente abriremos
-                    // el selector de archivos/carpeta.
+                    filePickerLauncher.launch(
+                        arrayOf("*/*")
+                    )
                 }
             ) {
-                Text("Buscar")
+                Text("Seleccionar archivo")
             }
 
             Spacer(modifier = Modifier.height(40.dp))
