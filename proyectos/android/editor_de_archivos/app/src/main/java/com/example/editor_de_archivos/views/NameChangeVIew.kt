@@ -1,6 +1,5 @@
 package com.example.editor_de_archivos.views
 
-import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -19,10 +18,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,25 +33,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.editor_de_archivos.viemodels.NameChangeViewModel
+
 
 @Composable
 fun NameChangeView(
     navController: NavController
 ) {
 
+    val viewModel: NameChangeViewModel = viewModel()
+
+    val fileName by viewModel.fileName.collectAsState()
+    val filesFound by viewModel.filesFound.collectAsState()
+
+    val isRenaming by viewModel.isRenaming.collectAsState()
+    val renameResult by viewModel.renameResult.collectAsState()
+
+    val renameProgress by viewModel.renameProgress.collectAsState()
+    val processedFiles by viewModel.processedFiles.collectAsState()
 
     var detectedType by remember { mutableStateOf("") }
 
-    var fileName by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf("Imagenes") }
-    val context = LocalContext.current
-    val contentResolver = context.contentResolver
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -58,41 +68,23 @@ fun NameChangeView(
 
         if (uri != null) {
 
-            val cursor = contentResolver.query(
-                uri,
-                null,
-                null,
-                null,
-                null
+            viewModel.selectFile(
+                uri = uri,
+                selectedType = selectedType
             )
+        }
+    }
 
-            cursor?.use {
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
 
-                if (it.moveToFirst()) {
+        if (uri != null) {
 
-                    val nameIndex = it.getColumnIndex(
-                        OpenableColumns.DISPLAY_NAME
-                    )
-
-                    if (nameIndex != -1) {
-                        fileName = it.getString(nameIndex)
-                    }
-                }
-            }
-
-            val mimeType = contentResolver.getType(uri)
-
-            detectedType = when {
-
-                mimeType?.startsWith("image/") == true ->
-                    "Imagen"
-
-                mimeType?.startsWith("video/") == true ->
-                    "Video"
-
-                else ->
-                    "Otro"
-            }
+            viewModel.selectFolder(
+                uri = uri,
+                selectedType = selectedType
+            )
         }
     }
 
@@ -138,6 +130,7 @@ fun NameChangeView(
                     selected = selectedType == "Imagenes",
                     onClick = {
                         selectedType = "Imagenes"
+                        viewModel.updateSelectedType("Imagenes")
                     }
                 )
 
@@ -152,6 +145,7 @@ fun NameChangeView(
                     selected = selectedType == "Videos",
                     onClick = {
                         selectedType = "Videos"
+                        viewModel.updateSelectedType("Videos")
                     }
                 )
 
@@ -166,6 +160,7 @@ fun NameChangeView(
                     selected = selectedType == "Ambos",
                     onClick = {
                         selectedType = "Ambos"
+                        viewModel.updateSelectedType("Ambos")
                     }
                 )
 
@@ -248,36 +243,90 @@ fun NameChangeView(
 
             Spacer(modifier = Modifier.height(15.dp))
 
-            Button(
-                onClick = {
-                    filePickerLauncher.launch(
-                        arrayOf("*/*")
-                    )
-                }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Seleccionar archivo")
+
+                Button(
+                    onClick = {
+
+                        val mimeTypes = when (selectedType) {
+
+                            "Imagenes" -> arrayOf("image/*")
+
+                            "Videos" -> arrayOf("video/*")
+
+                            "Ambos" -> arrayOf(
+                                "image/*",
+                                "video/*"
+                            )
+
+                            else -> arrayOf("*/*")
+                        }
+
+                        filePickerLauncher.launch(mimeTypes)
+                    }
+                ) {
+                    Text("Archivo")
+                }
+
+                Button(
+                    onClick = {
+                        folderPickerLauncher.launch(null)
+                    }
+                ) {
+                    Text("Carpeta")
+                }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Número de archivos
             Text(
-                text = "Archivos encontrados: 0",
+                text = "Archivos encontrados: $filesFound",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFF5F5F5)
             )
+
 
             Spacer(modifier = Modifier.height(20.dp))
 
             // Botón renombrar
             Button(
                 onClick = {
-                    // Aquí posteriormente irá
-                    // la lógica para renombrar.
-                }
+                    viewModel.renameFiles()
+                },
+                enabled = filesFound > 0 && !isRenaming
             ) {
-                Text("Renombrar")
+                Text(
+                    text = if (isRenaming) {
+                        "Renombrando..."
+                    } else {
+                        "Renombrar"
+                    }
+                )
+            }
+            Spacer(modifier = Modifier.height(40.dp))
+
+            if (isRenaming) {
+
+                LinearProgressIndicator(
+                    progress = { renameProgress },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Text(
+                    text = "$processedFiles / $filesFound"
+                )
+            }
+
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            renameResult?.let { result ->
+                Text(
+                    text = result
+                )
             }
 
             Spacer(modifier = Modifier.height(40.dp))
