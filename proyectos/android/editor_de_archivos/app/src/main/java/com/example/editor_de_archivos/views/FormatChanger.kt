@@ -1,5 +1,7 @@
 package com.example.editor_de_archivos.views
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,10 +17,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,15 +39,59 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.editor_de_archivos.utils.ImageFormat
+import com.example.editor_de_archivos.viemodels.FormatChangerViewModel
 
 @Composable
 fun FormatChanger(
     navController: NavController
 ) {
 
-    var fileName by remember { mutableStateOf("") }
-    var convertedFiles by remember { mutableStateOf(0) }
+    val viewModel: FormatChangerViewModel = viewModel()
+
+    val fileName by viewModel.fileName.collectAsState()
+
+    val selectedFiles by
+    viewModel.selectedFiles.collectAsState()
+
+    val convertedFiles by
+    viewModel.convertedFiles.collectAsState()
+
+    val processedFiles by
+    viewModel.processedFiles.collectAsState()
+
+    val isConverting by
+    viewModel.isConverting.collectAsState()
+
+    var showSearchMenu by remember {
+        mutableStateOf(false)
+    }
+
+    var selectedFormat by remember {
+        mutableStateOf(ImageFormat.JPG)
+    }
+
+    val filePickerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument()
+        ) { uri ->
+
+            if (uri != null) {
+                viewModel.selectFile(uri)
+            }
+        }
+
+    val folderPickerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocumentTree()
+        ) { uri ->
+
+            if (uri != null) {
+                viewModel.selectFolder(uri)
+            }
+        }
 
     Box(
         modifier = Modifier
@@ -96,7 +147,9 @@ fun FormatChanger(
                         tint = Color.White
                     )
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(
+                        modifier = Modifier.width(12.dp)
+                    )
 
                     Column(
                         modifier = Modifier.weight(1f)
@@ -109,7 +162,9 @@ fun FormatChanger(
                             fontSize = 14.sp
                         )
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(
+                            modifier = Modifier.height(4.dp)
+                        )
 
                         Text(
                             text = fileName.ifEmpty {
@@ -124,19 +179,59 @@ fun FormatChanger(
                 }
             }
 
-            Spacer(modifier = Modifier.height(15.dp))
+            Spacer(
+                modifier = Modifier.height(15.dp)
+            )
 
             // Buscar archivo o carpeta
-            Button(
-                onClick = {
-                    // Aquí posteriormente abriremos
-                    // el selector de archivos/carpeta.
+            Box {
+
+                Button(
+                    onClick = {
+                        showSearchMenu = true
+                    }
+                ) {
+                    Text("Buscar")
                 }
-            ) {
-                Text("Buscar")
+
+                DropdownMenu(
+                    expanded = showSearchMenu,
+                    onDismissRequest = {
+                        showSearchMenu = false
+                    }
+                ) {
+
+                    DropdownMenuItem(
+                        text = {
+                            Text("Archivo")
+                        },
+                        onClick = {
+
+                            showSearchMenu = false
+
+                            filePickerLauncher.launch(
+                                arrayOf("image/*")
+                            )
+                        }
+                    )
+
+                    DropdownMenuItem(
+                        text = {
+                            Text("Carpeta")
+                        },
+                        onClick = {
+
+                            showSearchMenu = false
+
+                            folderPickerLauncher.launch(null)
+                        }
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(45.dp))
+            Spacer(
+                modifier = Modifier.height(45.dp)
+            )
 
             // Formato
             Text(
@@ -146,31 +241,109 @@ fun FormatChanger(
                 color = Color(0xFFF5F5F5)
             )
 
-            Spacer(modifier = Modifier.height(15.dp))
+            Spacer(
+                modifier = Modifier.height(15.dp)
+            )
 
+            // Selección de formato
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
 
-                // Aquí posteriormente podemos agregar
-                // DropdownMenu o RadioButtons para
-                // seleccionar el formato.
+                ImageFormat.entries.forEach { format ->
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        RadioButton(
+                            selected = selectedFormat == format,
+                            onClick = {
+                                selectedFormat = format
+                            }
+                        )
+
+                        Text(
+                            text = format.extension.uppercase(),
+                            color = Color.White
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(25.dp))
+            Spacer(
+                modifier = Modifier.height(25.dp)
+            )
+
+            Text(
+                text = "Archivos encontrados: ${selectedFiles.size}",
+                color = Color.White
+            )
+
+            Spacer(
+                modifier = Modifier.height(25.dp)
+            )
 
             // Cambiar formato
             Button(
                 onClick = {
-                    // Aquí posteriormente irá
-                    // la lógica para cambiar el formato.
-                }
+                    viewModel.convertFiles(
+                        selectedFormat
+                    )
+                },
+                enabled = selectedFiles.isNotEmpty()
             ) {
                 Text("Cambiar formato")
             }
 
-            Spacer(modifier = Modifier.height(35.dp))
+            if (isConverting) {
+
+                Spacer(
+                    modifier = Modifier.height(20.dp)
+                )
+
+                Text(
+                    text = "Convirtiendo archivos...",
+                    color = Color.White,
+                    fontSize = 16.sp
+                )
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                LinearProgressIndicator(
+                    progress = {
+                        if (selectedFiles.isNotEmpty()) {
+                            processedFiles.toFloat() /
+                                    selectedFiles.size.toFloat()
+                        } else {
+                            0f
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(
+                            RoundedCornerShape(8.dp)
+                        )
+                )
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                Text(
+                    text = "$processedFiles / ${selectedFiles.size}",
+                    color = Color.White,
+                    fontSize = 14.sp
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.height(35.dp)
+            )
 
             // Archivos convertidos
             Text(
@@ -180,7 +353,9 @@ fun FormatChanger(
                 color = Color(0xFFF5F5F5)
             )
 
-            Spacer(modifier = Modifier.height(50.dp))
+            Spacer(
+                modifier = Modifier.height(50.dp)
+            )
 
             // Regresar
             Button(
