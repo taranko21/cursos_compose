@@ -202,12 +202,12 @@ class NameChangeViewModel(
                     clearSelection()
                 }
 
-            } catch (_: Exception) {
+            }catch (e: Exception) {
+                e.printStackTrace()
 
                 _renameResult.value =
-                    "Ocurrió un error al renombrar"
-
-            } finally {
+                    "Error: ${e::class.simpleName}"
+            }finally {
 
                 _isRenaming.value = false
             }

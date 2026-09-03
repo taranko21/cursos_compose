@@ -2,6 +2,7 @@ package com.example.editor_de_archivos.data
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
 import com.example.editor_de_archivos.utils.RandomNameGenerator
 
@@ -101,7 +102,13 @@ class FileRepository(
 
                 } while (newName in existingNames)
 
-                if (file.renameTo(newName)) {
+                val renamedUri = DocumentsContract.renameDocument(
+                    context.contentResolver,
+                    file.uri,
+                    newName
+                )
+
+                if (renamedUri != null) {
 
                     existingNames.remove(originalName)
                     existingNames.add(newName)

@@ -53,6 +53,10 @@ class FormatChangerViewModel(
     private var selectedFolderUri: Uri? = null
     private var selectedFileUri: Uri? = null
 
+    fun isFolderSelected(): Boolean {
+        return selectedFolderUri != null
+    }
+
     fun selectFolder(uri: Uri) {
 
         selectedFolderUri = uri
@@ -112,12 +116,11 @@ class FormatChangerViewModel(
             }
         }
     }
+
     fun convertFiles(
         format: ImageFormat
     ) {
-
-        val files =
-            _selectedFiles.value
+        val files = _selectedFiles.value
 
         if (files.isEmpty()) {
             return
@@ -131,30 +134,62 @@ class FormatChangerViewModel(
 
             var converted = 0
 
-            val totalFiles =
-                files.size
+            val folderUri = selectedFolderUri
 
-            for (file in files) {
+            if (folderUri != null) {
 
-                val success =
-                    repository.convertImage(
-                        file = file,
-                        format = format
-                    )
+                // =========================
+                // MODO CARPETA
+                // =========================
 
-                if (success) {
-                    converted++
+                for (file in files) {
+
+                    val success =
+                        repository.convertImage(
+                            file = file,
+                            directoryUri = folderUri,
+                            format = format
+                        )
+
+                    if (success) {
+                        converted++
+                    }
+
+                    _processedFiles.value++
                 }
 
-                _processedFiles.value++
             }
 
-            _convertedFiles.value =
-                converted
-
+            _convertedFiles.value = converted
             _isConverting.value = false
         }
     }
 
+    fun convertSelectedFile(
+        outputUri: Uri,
+        format: ImageFormat
+    ) {
+        val fileUri = selectedFileUri ?: return
 
+        viewModelScope.launch(Dispatchers.IO) {
+
+            _isConverting.value = true
+            _processedFiles.value = 0
+            _convertedFiles.value = 0
+
+            val success =
+                repository.convertSingleImage(
+                    fileUri = fileUri,
+                    outputUri = outputUri,
+                    format = format
+                )
+
+            if (success) {
+                _convertedFiles.value = 1
+            }
+
+            _processedFiles.value = 1
+            _isConverting.value = false
+        }
+    }
 }

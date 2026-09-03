@@ -93,6 +93,19 @@ fun FormatChanger(
             }
         }
 
+    val createDocumentLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument()
+        ) { uri ->
+
+            if (uri != null) {
+                viewModel.convertSelectedFile(
+                    outputUri = uri,
+                    format = selectedFormat
+                )
+            }
+        }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -288,9 +301,30 @@ fun FormatChanger(
             // Cambiar formato
             Button(
                 onClick = {
-                    viewModel.convertFiles(
-                        selectedFormat
-                    )
+
+                    if (viewModel.isFolderSelected()) {
+
+                        // Conversión de carpeta
+                        viewModel.convertFiles(selectedFormat)
+
+                    } else {
+
+                        // Conversión de archivo
+                        val fileName =
+                            selectedFiles.firstOrNull()?.name
+                                ?: "imagen"
+
+                        val baseName =
+                            fileName.substringBeforeLast(
+                                '.',
+                                fileName
+                            )
+
+                        val newName =
+                            "$baseName.${selectedFormat.extension}"
+
+                        createDocumentLauncher.launch(newName)
+                    }
                 },
                 enabled = selectedFiles.isNotEmpty() && !isConverting
             ) {
