@@ -292,7 +292,7 @@ fun FormatChanger(
                         selectedFormat
                     )
                 },
-                enabled = selectedFiles.isNotEmpty()
+                enabled = selectedFiles.isNotEmpty() && !isConverting
             ) {
                 Text("Cambiar formato")
             }
