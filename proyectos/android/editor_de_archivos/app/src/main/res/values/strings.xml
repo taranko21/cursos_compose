@@ -1,3 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+
 <resources>
-    <string name="app_name">editor de archivos</string>
+
+    <string name="app_name">Editor de Archivos</string>
+
 </resources>
